@@ -1,0 +1,16 @@
+BEGIN YODA_COUNTER /_EVTCOUNT
+Path=/_EVTCOUNT
+Title=
+Type=Counter
+# sumW	 sumW2	 numEntries
+0.000000e+00	0.000000e+00	0.000000e+00
+END YODA_COUNTER
+
+BEGIN YODA_SCATTER1D /_XSEC
+Path=/_XSEC
+Title=
+Type=Scatter1D
+# xval	 xerr-	 xerr+
+nan	0.000000e+00	0.000000e+00
+END YODA_SCATTER1D
+

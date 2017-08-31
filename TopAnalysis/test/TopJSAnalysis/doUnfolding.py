@@ -80,7 +80,8 @@ def main():
     systematics = {}   # systematic unfolding matrices
     
     for slist,isSyst in [ (samplesList,False), (systSamplesList,True), (expSystSamplesList,True) ]:
-        for tag,sample in slist: 
+        for tag,sample in slist:
+            print tag
             if tag in ['MC13TeV_TTJets_cflip']: continue
             if isSyst and not 't#bar{t}' in sample[3] : continue
             isData = sample[1]

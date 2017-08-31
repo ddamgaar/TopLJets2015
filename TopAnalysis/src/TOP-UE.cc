@@ -14,6 +14,16 @@
 #include "TopLJets2015/TopAnalysis/interface/SelectionTools.h"
 #include "TopLJets2015/TopAnalysis/interface/CommonTools.h"
 
+#include "fastjet/tools/Recluster.hh"
+#include "fastjet/contrib/Njettiness.hh"
+using fastjet::contrib::Njettiness;
+#include "fastjet/contrib/Nsubjettiness.hh"
+#include "fastjet/contrib/XConePlugin.hh" 
+using fastjet::contrib::Nsubjettiness;
+using fastjet::contrib::OnePass_WTA_KT_Axes;
+using fastjet::contrib::UnnormalizedMeasure;
+using fastjet::contrib::XConeMeasure;
+
 
 #include <vector>
 #include <iostream>
@@ -109,7 +119,7 @@ void RunTopUE(TString filename,
 	  ht.addHist("mll_"+subtag,  new TH1F("mll_"+subtag,";Dilepton invariant mass [GeV];Events",50,0,400) );
           ht.addHist("met_"+subtag       , new TH1F("met_"+subtag,";Missing transverse momentum [GeV];Events",50,0,300) );
 	}
-
+		// Jet multiplicity!
       ht.addHist("njets_"+tag, new TH1F("njets_"+tag,";Extra jet multiplicity;Events",7,0,7) );
       ht.addHist("ptttbar_"+tag   , new TH1F("ptttbar_"+tag,";p_{T}(t#bar{t}) [GeV];Events",50,0,200) );
       ht.addHist("sumpt_"+tag     , new TH1F("sumpt_"+tag,";Transverse momentum sum [GeV];Events",50,40,300) );      
@@ -123,6 +133,8 @@ void RunTopUE(TString filename,
       ht.addHist("chsumpt_"+tag   , new TH1F("chsumpt_"+tag,";Charged particle sum p_{T} [GeV];Events",50,0,400) );
       ht.addHist("chavgpz_"+tag   , new TH1F("chavgpz_"+tag,";Charged particle average p_{z} [GeV];Events",50,0,15) );      
       ht.addHist("chsumpz_"+tag   , new TH1F("chsumpz_"+tag,";Charged particle sum p_{z} [GeV];Events",50,0,400) );
+
+      
     }
   for (auto& it : ht.getPlots() )     { it.second->Sumw2(); it.second->SetDirectory(0); }
   for (auto& it : ht.get2dPlots() )   { it.second->Sumw2(); it.second->SetDirectory(0); }
@@ -159,7 +171,8 @@ void RunTopUE(TString filename,
       //the main objects of the analysis
       std::vector<Particle> recoTracks, genTracks;
 
-      //
+      //,
+      
       //RECO LEVEL analysis
       //
 

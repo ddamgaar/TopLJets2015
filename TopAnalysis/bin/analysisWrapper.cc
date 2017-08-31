@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
   TString in(""),out(""),era(""),normTag(""),method("");
   std::string systVar("");
   bool runSysts(false),debug(false);
-  int channel(0),charge(0),flav(0);
+  int channel(0),charge(0),flav(0), start(0), stop(0);
   for(int i=1;i<argc;i++){
     string arg(argv[i]);
     if(arg.find("--help") !=string::npos)                     { printHelp(); return -1;} 
@@ -57,8 +57,10 @@ int main(int argc, char* argv[])
     else if(arg.find("--normTag")!=string::npos && i+1<argc)  { normTag=argv[i+1]; i++;}
     else if(arg.find("--era")!=string::npos && i+1<argc)      { era=argv[i+1]; i++;}
     else if(arg.find("--method")!=string::npos && i+1<argc)   { method=argv[i+1]; i++;}
+    else if(arg.find("--start")!=string::npos && i+1<argc)     { sscanf(argv[i+1],"%d",&start); i++;}
+    else if(arg.find("--stop")!=string::npos && i+1<argc)     { sscanf(argv[i+1],"%d",&stop); i++;}
   }
-
+ 
   if(debug) cout << "Debug mode is active" << endl;
 
   //open normalization file
@@ -89,7 +91,8 @@ int main(int argc, char* argv[])
       printHelp();
       return -1;
     }
-
+  cout << "start = " << start<< endl;
+  cout << "end = "  << stop<< endl;
   //check method to run
   if(method=="TOP-16-006::RunTop16006")                      RunTop16006(in,out,channel,charge,SelectionTool::FlavourSplitting(flav),normH,runSysts,era);
   else if(method=="TOP-17-010::RunTop17010")                 RunTop17010(in,out,channel,charge,SelectionTool::FlavourSplitting(flav),normH,runSysts,era);
@@ -102,7 +105,8 @@ int main(int argc, char* argv[])
   else if(method=="ExclusiveTop::RunExclusiveTop")           RunExclusiveTop(in,out,channel,charge,normH,era,debug);
   else if(method=="MttbarAnalyzer::RunMttbarAnalyzer")       RunMttbarAnalyzer(in,out,channel,charge,normH,era,debug);
   else if(method=="BjetChargeTreeProducer::RunBjetChargeTreeProducer") RunBjetChargeTreeProducer(in,out,debug);
-  else if(method=="analysisXCone::RunanalysisXCone") RunanalysisXCone(in,out,channel,charge,SelectionTool::FlavourSplitting(flav),normH,runSysts,systVar,era,debug);
+  else if(method=="analysisXCone::RunanalysisXCone")		 RunanalysisXCone(in,out,channel,charge,SelectionTool::FlavourSplitting(flav),normH,runSysts,systVar,era,debug,start,stop);
+ 
   else
     {
       cout << "Check method=" << method <<endl;

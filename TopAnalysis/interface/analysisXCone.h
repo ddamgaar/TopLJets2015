@@ -15,9 +15,15 @@ struct analysisXCone_t
   Int_t run,event,lumi,cat;
   Int_t nvtx;
   Int_t nw;
-  Int_t NJettiness;
-  Int_t NJettSlope;
+  Int_t NJettiness_reco;
+  Int_t NJettSlope_reco;
+  Int_t NJettiness_gen;
+  Int_t NJettSlope_gen;
   Float_t weight[400];
+  Float_t tau_reco[10];
+  Float_t dtau_reco[10]; 
+  Float_t tau_gen[10];
+  Float_t dtau_gen[10]; 
   Int_t passSel,gen_passSel;
   Int_t nj, nb;
   Int_t gen_nj, gen_nb;
@@ -36,5 +42,7 @@ void RunanalysisXCone(TString filename,
                       Bool_t runSysts,
                       std::string systVar,
                       TString era,
-                      Bool_t debug);
+                      Bool_t debug,
+                      int splitting_start,
+                      int splitting_end);
 #endif

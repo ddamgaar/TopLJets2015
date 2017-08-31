@@ -69,6 +69,7 @@ def main():
     if opt.lumiSpecs:
         for spec in opt.lumiSpecs.split(','):
             tag,lumi=spec.split(':')
+            print tag
             lumiSpecs[tag]=float(lumi)
 
     #proc SF
@@ -122,7 +123,7 @@ def main():
                             report += '%s wasn\'t be scaled as too large SF was found (probably low stats)\n' % sp[0]
                         else :
                             report += '%s was scaled by %3.3f for pileup normalization\n' % (sp[0],puNormSF)
-
+                print(fIn.GetListOfKeys())
                 for tkey in fIn.GetListOfKeys():
                     keyIsSyst=False
 

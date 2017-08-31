@@ -33,8 +33,8 @@ def optimize(inputfile, output, obs, reco, ptcut, rootoutput):
     
     tree = ROOT.TChain('tjsev')
     if inputfile == 'eos':
-        tree.Add('/eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/MC13TeV_TTJets_0.root')
-        tree.Add('/eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/MC13TeV_TTJets_1.root')
+        tree.Add('/eos/user/d/ddamgaar/analysis/TopJetShapes/b312177/MC13TeV_TTJets.root')
+        #tree.Add('/eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/MC13TeV_TTJets_1.root')
         #tree.Add('/eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/MC13TeV_TTJets_2.root')
         #tree.Add('/eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/MC13TeV_TTJets_3.root')
         #tree.Add('/eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/MC13TeV_TTJets_4.root')

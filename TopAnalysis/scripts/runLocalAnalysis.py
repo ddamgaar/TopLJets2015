@@ -15,7 +15,7 @@ Wrapper to be used when run in parallel
 """
 def RunMethodPacked(args):
 
-    method,inF,outF,channel,charge,flav,runSysts,systVar,era,tag,debug=args
+    method,inF,outF,channel,charge,flav,runSysts,systVar,era,tag,debug,start,stop=args
     print 'Running ',method,' on ',inF
     print 'Output file',outF
     print 'Selection ch=',channel,' charge=',charge,' flavSplit=',flav,' systs=',runSysts
@@ -23,8 +23,8 @@ def RunMethodPacked(args):
     print 'Corrections will be retrieved for era=',era
 
     try:
-        cmd='analysisWrapper --era %s --normTag %s --in %s --out %s --method %s --charge %d --channel %d --flav %d --systVar %s'\
-            %(era, tag, inF, outF, method, charge, channel, flav, systVar)
+        cmd='analysisWrapper --era %s --normTag %s --in %s --out %s --method %s --charge %d --channel %d --flav %d --systVar %s --start %d --stop %d'\
+            %(era, tag, inF, outF, method, charge, channel, flav, systVar,start,stop)
         if runSysts : cmd += ' --runSysts'
         if debug : cmd += ' --debug'
         print(cmd)
@@ -63,6 +63,9 @@ def main():
     parser.add_option(      '--exactonly',   dest='exactonly',   help='match only exact sample tags to process  [%default]',    default=False,      action='store_true')
     parser.add_option(      '--outputonly',        dest='outputonly',        help='filter job submission for a csv list of output files  [%default]',             default=None,       type='string')
     parser.add_option(      '--farmappendix',        dest='farmappendix',        help='Appendix to condor FARM directory [%default]',             default=None,       type='string')
+    parser.add_option(      '--start',        dest='start',        help='start events',             default=None,       type=int)
+    parser.add_option(      '--stop',        dest='stop',        help='stop events',             default=None,       type=int)
+
     (opt, args) = parser.parse_args()
 
     #parse selection lists
@@ -126,7 +129,7 @@ def main():
         for systVar in varList:
             outF=opt.output
             if systVar != 'nominal' and not systVar in opt.output: outF=opt.output[:-5]+'_'+systVar+'.root'
-            task_list.append( (opt.method,inF,outF,opt.channel,opt.charge,opt.flav,opt.runSysts,systVar,opt.era,opt.tag,opt.debug) )
+            task_list.append( (opt.method,inF,outF,opt.channel,opt.charge,opt.flav,opt.runSysts,systVar,opt.era,opt.tag,opt.debug, opt.start,opt.stop) )
     else:
 
         inputTags=getEOSlslist(directory=opt.input,prepend='')
@@ -158,18 +161,33 @@ def main():
                 nexisting = 0
                 for ifile in xrange(0,len(input_list)):
                     inF=input_list[ifile]
-                
-                    outF=os.path.join(opt.output,'Chunks','%s_%d.root' %(tag,ifile))
-                    if systVar != 'nominal' and not systVar in tag: outF=os.path.join(opt.output,'Chunks','%s_%s_%d.root' %(tag,systVar,ifile))
-                    if (opt.skipexisting and os.path.isfile(outF)):
-                        nexisting += 1
-                        continue
-                    if (len(outputOnlyList) > 1 and not outF in outputOnlyList):
-                        continue
-                    task_list.append( (opt.method,inF,outF,opt.channel,opt.charge,opt.flav,opt.runSysts,systVar,opt.era,tag,opt.debug) )
+                    chain = ROOT.TChain('analysis/data')
+                    chain.Add(inF)
+                    entries = chain.GetEntries()
+                    #ntriesPrJob = 10000
+                    ntriesPrJob = 10000
+                    chain.Reset()
+                   
+                    
+                    ii = 0
+                    while ii*ntriesPrJob < entries:
+                        
+                        outF=os.path.join(opt.output,'Chunks','%s_%s%s.root' %(tag,format(ifile,'03'),format(ii, '02')))
+                        if systVar != 'nominal' and not systVar in tag: outF=os.path.join(opt.output,'Chunks','%s_%s%d.root' %(tag,systVar,ifile))
+                        if (opt.skipexisting and os.path.isfile(outF)):
+                            nexisting += 1
+                            continue
+                        if (len(outputOnlyList) > 1 and not outF in outputOnlyList):
+                            continue
+                        
+                        task_list.append( (opt.method,inF,outF,opt.channel,opt.charge,opt.flav,opt.runSysts,systVar,opt.era,tag,opt.debug,ii*ntriesPrJob,(ii+1)*ntriesPrJob) )
+                        ii+=1
                 if (opt.skipexisting and nexisting): print '--skipexisting: %s - skipping %d of %d tasks as files already exist'%(systVar,nexisting,len(input_list))
 
+
     #run the analysis jobs
+    
+    
     if opt.queue=='local':
         print 'launching %d tasks in %d parallel jobs'%(len(task_list),opt.njobs)
         if opt.njobs == 0:
@@ -179,7 +197,7 @@ def main():
             pool = Pool(opt.njobs)
             pool.map(RunMethodPacked, task_list)
     else:
-        
+
         FarmDirectory = '%s/FARM%s%s'%(cmsswBase,os.path.basename(opt.output),opt.farmappendix)
         os.system('mkdir -p %s'%FarmDirectory)
         
@@ -191,16 +209,19 @@ def main():
             condor.write('executable = {0}/$(cfgFile).sh\n'.format(FarmDirectory))
             condor.write('output     = {0}/output_$(cfgFile).out\n'.format(FarmDirectory))
             condor.write('error      = {0}/output_$(cfgFile).err\n'.format(FarmDirectory))
+            condor.write('log        = {0}/output_$(cfgFile).log\n'.format(FarmDirectory))
             condor.write('+JobFlavour = "{0}"\n'.format(opt.queue))
 
             jobNb=0
-            for method,inF,outF,channel,charge,flav,runSysts,systVar,era,tag,debug in task_list:
+            print len(task_list)
+            for method,inF,outF,channel,charge,flav,runSysts,systVar,era,tag,debug,start,stop in task_list:
 
                 jobNb+=1
                 cfgFile='%s'%(os.path.splitext(os.path.basename(outF))[0])
 
                 condor.write('cfgFile=%s\n'%cfgFile)
                 condor.write('queue 1\n')
+                condor.write('max_retries = 10\n')
                 
                 with open('%s/%s.sh'%(FarmDirectory,cfgFile),'w') as cfg:
 
@@ -211,16 +232,34 @@ def main():
                     cfg.write('eval `scram r -sh`\n')
                     cfg.write('cd ${WORKDIR}\n')
                     localOutF=os.path.basename(outF)
-                    runOpts='-i %s -o ${WORKDIR}/%s --charge %d --ch %d --era %s --tag %s --flav %d --method %s --systVar %s'\
-                        %(inF, localOutF, charge, channel, era, tag, flav, method, systVar)
+                    runOpts='-i %s -o ${WORKDIR}/%s --charge %d --ch %d --era %s --tag %s --flav %d --method %s --systVar %s --start %d --stop %d'\
+                        %(inF, localOutF, charge, channel, era, tag, flav, method, systVar, start, stop)
                     if runSysts : runOpts += ' --runSysts'
                     if debug :    runOpts += ' --debug'
-                    cfg.write('python %s/src/TopLJets2015/TopAnalysis/scripts/runLocalAnalysis.py %s\n'%(cmsswBase,runOpts))
+                    cfg.write('python %s/src/TopLJets2015/TopAnalysis/scripts/runLocalAnalysis.py %s || exit $?\n'%(cmsswBase,runOpts))
                     if '/store' in outF:
                         cfg.write('xrdcp ${WORKDIR}/%s root://eoscms//eos/cms/%s\n'%(localOutF,outF))
                         cfg.write('rm ${WORKDIR}/%s'%localOutF)
                     elif outF!=localOutF:
-                        cfg.write('  mv -v ${WORKDIR}/%s %s\n'%(localOutF,outF))
+                        cfg.write('''
+                                  MAX_RETRIES=10
+                                  i=0
+                                  # Set the initial return value to failure
+                                  RT=1
+                                  while [ $RT -ne 0 -a $i -lt $MAX_RETRIES ]
+                                  do
+                                    i=$(($i+1))
+                                    mv -v ${WORKDIR}/%s %s
+                                    RT=$?
+                                    sleep 15
+                                  done
+                                  if [ $i -eq $MAX_RETRIES ]
+                                  then
+                                    echo "Hit maximum number of mv retries, giving up."
+                                    rm %s
+                                    exit 1
+                                  fi
+                                  '''%(localOutF,outF,outF))
 
                 os.system('chmod u+x %s/%s.sh'%(FarmDirectory,cfgFile))
 

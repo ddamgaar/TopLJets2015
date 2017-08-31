@@ -12,9 +12,9 @@ fi
 export LSB_JOB_REPORT_MAIL=N
 
 
-queue=longlunch
+queue=workday
 githash=b312177
-lumi=16551
+lumi=35922
 lumiSpecs="" #--lumiSpecs EE:11391"
 lumiUnc=0.027
 whoami=`whoami`
@@ -48,12 +48,36 @@ case $WHAT in
         cd -;
         ;;
 
-    FULLSELCENTRAL )
+    FULLSELDATA )
         cd batch;
-        python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir} --era era2016 -m TOPJetShape::RunTopJetShape --only MC13TeV_TTJets --exactonly;
+        python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir}_data --era era2016 -m analysisXCone::RunanalysisXCone --skipexisting --only Data13TeV_Single,Data13TeV_MuonEG --farmappendix data;
         cd -;
         ;;
 
+    FULLSELCENTRAL )
+        cd batch;
+        python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir} --era era2016 -m analysisXCone::RunanalysisXCone --only MC13TeV_TTJets --exactonly ;
+#,MC13TeV_TTJets_isrup,MC13TeV_TTJets_isrdn 
+        cd -;
+        ;;
+    FULLSELISR )
+        cd batch;
+        python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir}_isr --era era2016 -m analysisXCone::RunanalysisXCone --only MC13TeV_TTJets_isrup,MC13TeV_TTJets_isrdn --exactonly --farmappendix isr ;
+#,MC13TeV_TTJets_isrup,MC13TeV_TTJets_isrdn 
+        cd -;
+        ;;
+    FULLSELFSR )
+        cd batch;
+        python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir}_fsr --era era2016 -m analysisXCone::RunanalysisXCone --only MC13TeV_TTJets_fsrup,MC13TeV_TTJets_fsrdn --exactonly --farmappendix fsr ;
+#,MC13TeV_TTJets_isrup,MC13TeV_TTJets_isrdn 
+        cd -;
+        ;;
+    FULLSELHERWIG )
+        cd batch;
+        python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir}_herwig --era era2016 -m analysisXCone::RunanalysisXCone --only MC13TeV_TTJets_herwig --exactonly --farmappendix herwig ;
+#,MC13TeV_TTJets_isrup,MC13TeV_TTJets_isrdn 
+        cd -;
+        ;;
     FULLSELSYST )
         cd batch;
         python ../scripts/runLocalAnalysis.py -i ${eosdir} -q ${queue} -o ${summaryeosdir}_expsyst --era era2016 -m TOPJetShape::RunTopJetShape --skipexisting --only MC13TeV_TTJets --systVar all --exactonly;
@@ -61,18 +85,18 @@ case $WHAT in
         ;;
 
     MERGE )
-        python scripts/mergeOutputs.py ${summaryeosdir} True;
+        python scripts/mergeOutputs.py ${summaryeosdir}_fsr True;
         ;;
 
     PLOTSEL )
         rm -r plots
-        commonOpts="-i ${summaryeosdir} -j data/era2016/samples.json,data/era2016/qcd_samples.json --systJson data/era2016/syst_samples.json,data/era2016/expsyst_samples.json -l ${lumi} --mcUnc ${lumiUnc} --rebin 1"
+        commonOpts="-i ${summaryeosdir} -j data/era2016/samples_d.json,data/era2016/qcd_samples.json --systJson data/era2016/syst_samples.json,data/era2016/expsyst_samples.json -l ${lumi} --mcUnc ${lumiUnc} --rebin 1"
         python scripts/plotter.py ${commonOpts} --outDir plots;
         ;;
 
     TESTPLOTSEL )
-        commonOpts="-i ${summaryeosdir} -j data/era2016/samples.json,data/era2016/qcd_samples.json --systJson data/era2016/syst_samples.json,data/era2016/expsyst_samples.json -l ${lumi}"
-        python scripts/plotter.py ${commonOpts} --outDir plots/test --only L4_1l4j2b2w_njets,L4_1l4j2b2w_nvtx,js_tau32_charged;
+        commonOpts="-i ${summaryeosdir} -j data/era2016/samples_d.json --systJson data/era2016/syst_samples.json -l ${lumi} --mcUnc ${lumiUnc}"
+        python scripts/plotter.py ${commonOpts} --outDir plots/test ;
         #python scripts/plotter.py ${commonOpts} --outDir plots/test --only L4_1l4j2b2w_nvtx;
         ;;
 
@@ -96,13 +120,13 @@ case $WHAT in
 
     FILL )
         cd batch;
-        python ../test/TopJSAnalysis/fillUnfoldingMatrix.py -q workday -i /eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/ --skipexisting;
+        python ../test/TopJSAnalysis/fillUnfoldingMatrix.py -q workday -i /eos/user/d/ddamgaar/analysis/TopJetShapes/b312177/Chunks/ --skipexisting;
         cd -;
         ;;
         
     FILLWEIGHTS )
         cd batch;
-        python ../test/TopJSAnalysis/fillUnfoldingMatrix.py -q longlunch -i /eos/user/m/mseidel/analysis/TopJetShapes/b312177/Chunks/ --only MC13TeV_TTJets --nweights 20;
+        python ../test/TopJSAnalysis/fillUnfoldingMatrix.py -q longlunch -i /eos/user/d/ddamgaar/analysis/TopJetShapes/b312177/Chunks/ --only MC13TeV_TTJets --nweights 20;
         cd -;
         ;;
     
@@ -111,7 +135,7 @@ case $WHAT in
         ;;
         
     TOYUNFOLDING )
-        for OBS in mult width ptd ptds ecc tau21 tau32 tau43 zg zgxdr zgdr ga_width ga_lha ga_thrust c1_02 c1_05 c1_10 c1_20 c2_02 c2_05 c2_10 c2_20 c3_02 c3_05 c3_10 c3_20
+        for OBS in tau_N_gen
         do
           for FLAVOR in all bottom light gluon
           do
@@ -124,12 +148,12 @@ case $WHAT in
         ;;
         
     UNFOLDING )
-        for OBS in mult width ptd ptds ecc tau21 tau32 tau43 zg zgxdr zgdr ga_width ga_lha ga_thrust c1_02 c1_05 c1_10 c1_20 c2_02 c2_05 c2_10 c2_20 c3_02 c3_05 c3_10 c3_20
+        for OBS in tau_N_gen
         do
           for FLAVOR in all bottom light gluon
           do
             while [ $(jobs | wc -l) -ge 4 ] ; do sleep 1 ; done
-            python test/TopJSAnalysis/doUnfolding.py --obs ${OBS} --flavor ${FLAVOR} &
+            python test/TopJSAnalysis/doUnfolding_d.py --obs ${OBS} --flavor ${FLAVOR} &
           done
         done
         python test/TopJSAnalysis/plotMeanTau.py

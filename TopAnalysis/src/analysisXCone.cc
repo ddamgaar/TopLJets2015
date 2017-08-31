@@ -47,12 +47,13 @@ void RunanalysisXCone(TString filename,
               Bool_t runSysts,
               std::string systVar,
               TString era,
-              Bool_t debug)
+              Bool_t debug,
+              int splitting_start,
+              int splitting_end)
 {
   /////////////////////
   // INITIALIZATION //
   ///////////////////
-
   bool isTTbar( filename.Contains("_TTJets") or (normH and TString(normH->GetTitle()).Contains("_TTJets")));
   bool isData( filename.Contains("Data") );
   
@@ -141,9 +142,12 @@ void RunanalysisXCone(TString filename,
   outT->SetDirectory(fOut);
 
   //BOOK CONTROL HISTOGRAMS
+  
   HistTool ht; 
   if (isData) ht.setNsyst(0);
-  ht.addHist("puwgtctr", new TH1F("puwgtctr","Weight sums",4,0,4) );  
+  std::map<TString, TH1 *> allPlots;
+  //ht.addHist("puwgtctr", new TH1F("puwgtctr","Weight sums",4,0,4) );
+  allPlots["puwgtctr"] = new TH1F("puwgtctr","Weight sums",2,0,2);
   std::vector<TString> lfsVec = { "EM" };
   for(size_t ilfs=0; ilfs<lfsVec.size(); ilfs++)   
     { 
@@ -166,19 +170,32 @@ void RunanalysisXCone(TString filename,
       ht.addHist("ptll_"+tag      , new TH1F("ptll_"+tag,";Dilepton transverse momentum [GeV];Events",50,0,200) );
       ht.addHist("nbtags_"+tag    , new TH1F("nbtags_"+tag,";b-tag multiplicity;Events",3,0,3) );
       ht.addHist("nch_"+tag      , new TH1F("nch_"+tag,";Charged particle multiplicity;Events",50,0,200) ); 
-      ht.addHist("XConeCut_"+tag, new TH1F("XConeCut_"+tag,"; Jet XConeCut; Events",10,0,10));
-      ht.addHist("XConeDiff_"+tag, new TH1F("XConeDiff_"+tag,"; Jet XConeDiff; Events",10,0,10));
-      for (Int_t i = 2;  i<10; i++){
+      ht.addHist("XConeCut_reco_"+tag, new TH1F("XConeCut_reco_"+tag,"; Jet XConeCut; Events",10,0,10));
+      ht.addHist("XConeDiff_reco_"+tag, new TH1F("XConeDiff_reco_"+tag,"; Jet XConeDiff; Events",10,0,10));
+      ht.addHist("XConeCut_gen_"+tag, new TH1F("XConeCut_reco_"+tag,"; Jet XConeCut; Events",10,0,10));
+      ht.addHist("XConeDiff_gen_"+tag, new TH1F("XConeDiff_gen_"+tag,"; Jet XConeDiff; Events",10,0,10));
+      for (Int_t i = 0;  i<10; i++){
         TString ii = std::to_string(i);
-        ht.addHist(ii+"_Jettiness"+tag, new TH1F(ii+"_Jettiness"+tag,";tau ;Events",50,0,200));
-        ht.addHist(ii+"_Jettiness_slope"+tag, new TH1F(ii+"_Jettiness_slope"+tag,";d tau/d N ;Events",20,-0.1,0));
+        ht.addHist("tau_"+ii+"_Jettiness_reco_"+tag, new TH1F("tau_"+ii+"_Jettiness_reco"+tag,";tau ;Events",50,0,200));
+        ht.addHist("tau_"+ii+"_Jettiness_slope_reco_"+tag, new TH1F("tau_"+ii+"_Jettiness_slope_reco"+tag,";d tau/d N ;Events",20,-0.1,0));
       }
     }
+  for (auto& it : allPlots)   		  { it.second->Sumw2(); it.second->SetDirectory(0); }
   for (auto& it : ht.getPlots() )     { it.second->Sumw2(); it.second->SetDirectory(0); }
   for (auto& it : ht.get2dPlots() )   { it.second->Sumw2(); it.second->SetDirectory(0); }
-
+	// Static variables for NJettiness:
+  double tau_cut = 30.0;
+  double beta = 2.;
+  double R = 0.4;
+  
+  // The splitting calculations;
+	if (splitting_end ==-1 || splitting_end>nentries){
+		splitting_end = nentries;
+	}
+	//cout << "start = " << splitting_start<<endl;
+	//cout << "stop = " << splitting_end<<endl;
   //LOOP OVER EVENTS
-  for (Int_t iev=0;iev<nentries;iev++)
+  for (Int_t iev=splitting_start;iev<splitting_end;iev++)
     {
       t->GetEntry(iev);
       resetanalysisXCone(tue);
@@ -238,7 +255,7 @@ void RunanalysisXCone(TString filename,
       ///////////////////////////
       // RECO LEVEL SELECTION //
       /////////////////////////
-
+      allPlots["puwgtctr"]->Fill(0.,1.0);
       //evsel.setDebug(true);
       TString chTag = evsel.flagFinalState(ev);
       if(chTag=="EM" )
@@ -294,6 +311,7 @@ void RunanalysisXCone(TString filename,
             double puWgt(puWgtGr[period][0]->Eval(ev.g_pu));
             if (std::isnan(puWgt)) puWgt = 1.;
             if (puWgt == 0.) puWgt = 1.;
+            allPlots["puwgtctr"]->Fill(1,puWgt);
             wgt *= puWgt;
             double puWgt1(puWgtGr[period][1]->Eval(ev.g_pu));
             if (std::isnan(puWgt1)) puWgt1 = 1.;
@@ -430,27 +448,31 @@ void RunanalysisXCone(TString filename,
             
             // NJettiness variables
             // TODO: maybe move again to a place where it can be used by both reco and gen analysis
-            double tau_cut = 30.0 ;
-            double beta = 2.;
-            double R = 0.4;
+
             double tau_temp_C = 1000.;
             double tau_temp_S = 1000.0;
-            unsigned int N_temp_S = 1;
-            unsigned int N_temp_C = 1;
-            
-            Njettiness* tauN = new fastjet::contrib::Njettiness(OnePass_WTA_KT_Axes(), XConeMeasure(beta,R));        
-            for (int N = 2; N < 10; ++N) {
-              double tau_C = tauN->getTau(N, fj_particles);
-              double tau_S = 0;
-              if (tauN->getTau(N-1,fj_particles) > 0.) {
+            unsigned int N_temp_S = -1;
+            unsigned int N_temp_C = -1;
+	
+            Njettiness* tauN = new fastjet::contrib::Njettiness(OnePass_WTA_KT_Axes(), XConeMeasure(2.0,0.4));   
+                 
+            for (Int_t N = 0 ; N < 10; ++N) { 
+              Float_t tau_C = tauN->getTau(N, fj_particles);
+              Float_t tau_S = 0.;
+              if (N > 0) {
+				 if ( tauN->getTau(N-1,fj_particles) > 0.){
                 tau_S = (tauN->getTau(N,fj_particles) - tauN->getTau(N-1,fj_particles))/(tauN->getTau(N-1,fj_particles));
                 if (tau_S == -1.0){
                   tau_S = 0.0;
                 }
+			}
               }
-
-              ht.fill(N+"_Jettiness"+chTag,tau_C,plotwgts);
-              ht.fill(N+"_Jettiness_slope"+chTag,tau_S,plotwgts);
+              //if (N<10) continue;
+              TString N_string = std::to_string(N);
+              ht.fill("tau_"+N_string+"_Jettiness_reco_"+chTag,tau_C,plotwgts);
+              ht.fill("tau_"+N_string+"_Jettiness_slope_reco_"+chTag,tau_S,plotwgts);
+							tue.tau_reco[N] = tau_C;
+							tue.dtau_reco[N] = tau_S;
 
               if (tau_C < tau_temp_C and tau_C > tau_cut){
                 tau_temp_C = tau_C;
@@ -462,14 +484,12 @@ void RunanalysisXCone(TString filename,
               }
             }
             delete tauN;
-            
             // Fill NJettiness results into tree and histograms
             
-            tue.NJettiness = int( N_temp_C);
-            tue.NJettSlope = int (N_temp_S);
-            
-            ht.fill("XConeCut_"+chTag,int(N_temp_C),plotwgts);
-            ht.fill("XConeDiff_"+chTag,int(N_temp_S),plotwgts);
+            tue.NJettiness_reco = int( N_temp_C);
+            tue.NJettSlope_reco = int (N_temp_S);
+            ht.fill("XConeCut_reco_"+chTag,int(N_temp_C),plotwgts);
+            ht.fill("XConeDiff_reco_"+chTag,int(N_temp_S),plotwgts);
           }
         }
 
@@ -543,6 +563,44 @@ void RunanalysisXCone(TString filename,
           }
           
           // TODO: calculate NJettiness at gen level
+            double tau_temp_C = 1000.;
+            double tau_temp_S = 1000.0;
+            unsigned int N_temp_S = 1;
+            unsigned int N_temp_C = 1;
+
+            Njettiness* tauN = new fastjet::contrib::Njettiness(OnePass_WTA_KT_Axes(), XConeMeasure(beta,R));   
+                 
+            for (Int_t N = 0; N < 10; ++N) { 
+              Float_t tau_C = tauN->getTau(N, fj_particles);
+              Float_t tau_S = 0;
+              if ( N > 0) {
+				 if (tauN->getTau(N-1,fj_particles)){
+                tau_S = (tauN->getTau(N,fj_particles) - tauN->getTau(N-1,fj_particles))/(tauN->getTau(N-1,fj_particles));
+                if (tau_S == -1.0){
+                  tau_S = 0.0;
+                }
+			}
+			}
+              TString N_string = std::to_string(N);
+
+              tue.tau_gen[N] = tau_C;
+              tue.dtau_gen[N] = tau_S;
+
+              if (tau_C < tau_temp_C and tau_C > 30.0){
+                tau_temp_C = tau_C;
+                N_temp_C = N;
+              }
+              if (tau_S < tau_temp_S and tau_S !=-1.0){
+                tau_temp_S = tau_S;
+                N_temp_S = N;
+              }
+            }
+            delete tauN;
+            // Fill NJettiness results into tree and histograms
+            
+            tue.NJettiness_gen = int( N_temp_C);
+            tue.NJettSlope_gen = int (N_temp_S);
+     
 
         }
       
@@ -573,6 +631,9 @@ void RunanalysisXCone(TString filename,
   for (auto& it : ht.get2dPlots())  { 
     it.second->SetDirectory(fOut); it.second->Write(); 
   }
+   for (auto& it : allPlots)  { 
+    it.second->SetDirectory(fOut); it.second->Write(); 
+}
   cout << "Histograms were saved" << endl;
   fOut->Close();
 }
@@ -597,8 +658,14 @@ void createanalysisXConeTree(TTree *t,analysisXCone_t &tue)
   
   //NJettiness
   //TODO: consistent names of variables and branches ;)
-  t->Branch("N_cut",       &tue.NJettiness,  "N_cut/I");
-  t->Branch("N_slope",     &tue.NJettSlope,  "N_slope/I");
+  t->Branch("N_cut_gen",       &tue.NJettiness_gen,  "N_cut_gen/I");
+  t->Branch("N_slope_gen",     &tue.NJettSlope_gen,  "N_slope_gen/I");
+  t->Branch("tau_N_gen", 	      tue.tau_gen,	       "tau_N_gen[10]/F"); 
+  t->Branch("dtau_N_gen", 	      tue.dtau_gen,	       "dtau_N_gen[10]/F"); 
+  t->Branch("N_cut_reco",       &tue.NJettiness_reco,  "N_cut_reco/I");
+  t->Branch("N_slope_reco",     &tue.NJettSlope_reco,  "N_slope_reco/I");
+  t->Branch("tau_N_reco", 	      tue.tau_reco,	       "tau_N_reco[10]/F"); 
+  t->Branch("dtau_N_reco", 	      tue.dtau_reco,	       "dtau_N_reco[10]/F"); 
 
   //event weights
   t->Branch("nw",     &tue.nw, "nw/I");
@@ -619,9 +686,11 @@ void createanalysisXConeTree(TTree *t,analysisXCone_t &tue)
   t->Branch("gen_mll",    &tue.gen_mll ,    "gen_mll/F");
   t->Branch("gen_sumpt",  &tue.gen_sumpt ,  "gen_sumpt/F");
   t->Branch("gen_dphill", &tue.gen_dphill , "gen_dphill/F");
+  t->Branch("gen_sel",  &tue.gen_sel,		"gen_sel/I");
+  t->Branch("reco_sel",  &tue.reco_sel,		"gen_reco/I");
 }
 
-//
+
 void resetanalysisXCone(analysisXCone_t &tue)
 {
   //dummy event header
@@ -644,7 +713,17 @@ void resetanalysisXCone(analysisXCone_t &tue)
   tue.gen_dphill=0;
   tue.gen_nj=0;             
   tue.gen_nb=0;
-  
+  tue.NJettSlope_gen = -99;
+  tue.NJettSlope_reco = -99;
+  tue.NJettiness_gen = -99;
+  tue.NJettiness_reco = -99;
+  for (int i = 0; i<10;i++){
+	  tue.tau_gen[i] = -1.0;
+	  tue.tau_reco[i] = -1.0;
+	  tue.dtau_gen[i] = -1.0;
+	  tue.dtau_reco[i] = -1.0;
+	  tue.dtau_reco[i] = -1.0;
+  } 
   //reset selection flags
   tue.gen_sel = -1; tue.reco_sel = -1;
 }
